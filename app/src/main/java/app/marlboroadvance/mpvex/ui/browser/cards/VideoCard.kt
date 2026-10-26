@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,18 +119,19 @@ fun VideoCard(
         horizontalAlignment = if (gridColumns == 1) Alignment.Start else Alignment.CenterHorizontally,
       ) {
         val thumbnailRepository = koinInject<ThumbnailRepository>()
+        val thumbnailConfig by thumbnailRepository.config.collectAsState()
         val thumbWidthDp = 160.dp
         val aspect = 16f / 9f
         val thumbWidthPx = with(LocalDensity.current) { thumbWidthDp.roundToPx() }
         val thumbHeightPx = (thumbWidthPx / aspect).roundToInt()
 
         val thumbnailKey =
-          remember(video.id, video.dateModified, video.size, thumbWidthPx, thumbHeightPx) {
-            thumbnailRepository.thumbnailKey(video, thumbWidthPx, thumbHeightPx)
+          remember(video, thumbWidthPx, thumbHeightPx, thumbnailConfig) {
+            thumbnailRepository.thumbnailKey(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
           }
 
         var thumbnail by remember(thumbnailKey) {
-          mutableStateOf(thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx))
+          mutableStateOf(thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx, thumbnailConfig))
         }
 
         // Update thumbnail when the repository emits that this key became ready (folder prefetch or any other source).
@@ -137,7 +139,7 @@ fun VideoCard(
           thumbnailRepository.thumbnailReadyKeys
             .filter { it == thumbnailKey }
             .collect {
-              thumbnail = thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx)
+              thumbnail = thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
             }
         }
 
@@ -148,9 +150,9 @@ fun VideoCard(
             thumbnail =
               withContext(Dispatchers.IO) {
                 if (allowThumbnailGeneration) {
-                  thumbnailRepository.getThumbnail(video, thumbWidthPx, thumbHeightPx)
+                  thumbnailRepository.getThumbnail(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
                 } else {
-                  thumbnailRepository.getCachedThumbnail(video, thumbWidthPx, thumbHeightPx)
+                  thumbnailRepository.getCachedThumbnail(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
                 }
               }
           }
@@ -386,6 +388,7 @@ fun VideoCard(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         val thumbnailRepository = koinInject<ThumbnailRepository>()
+        val thumbnailConfig by thumbnailRepository.config.collectAsState()
         // Rectangular thumbnail (16:9) with fixed width; height derives from aspect ratio
         val thumbWidthDp = 128.dp
         val aspect = 16f / 9f
@@ -395,13 +398,13 @@ fun VideoCard(
         // Load thumbnail with optimized state management
         // Key includes video identity to prevent reloading same thumbnail
         val thumbnailKey =
-          remember(video.id, video.dateModified, video.size, thumbWidthPx, thumbHeightPx) {
-            thumbnailRepository.thumbnailKey(video, thumbWidthPx, thumbHeightPx)
+          remember(video, thumbWidthPx, thumbHeightPx, thumbnailConfig) {
+            thumbnailRepository.thumbnailKey(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
           }
 
         // Try to get from memory cache immediately (synchronous, no flicker)
         var thumbnail by remember(thumbnailKey) {
-          mutableStateOf(thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx))
+          mutableStateOf(thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx, thumbnailConfig))
         }
 
         // Update thumbnail when the repository emits that this key became ready (folder prefetch or any other source).
@@ -409,7 +412,7 @@ fun VideoCard(
           thumbnailRepository.thumbnailReadyKeys
             .filter { it == thumbnailKey }
             .collect {
-              thumbnail = thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx)
+              thumbnail = thumbnailRepository.getThumbnailFromMemory(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
             }
         }
 
@@ -420,9 +423,9 @@ fun VideoCard(
             thumbnail =
               withContext(Dispatchers.IO) {
                 if (allowThumbnailGeneration) {
-                  thumbnailRepository.getThumbnail(video, thumbWidthPx, thumbHeightPx)
+                  thumbnailRepository.getThumbnail(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
                 } else {
-                  thumbnailRepository.getCachedThumbnail(video, thumbWidthPx, thumbHeightPx)
+                  thumbnailRepository.getCachedThumbnail(video, thumbWidthPx, thumbHeightPx, thumbnailConfig)
                 }
               }
           }

@@ -6,13 +6,12 @@ import android.graphics.BitmapFactory
 import android.util.LruCache
 import app.marlboroadvance.mpvex.domain.media.model.Video
 import app.marlboroadvance.mpvex.utils.media.MediaInfoOps
+import app.marlboroadvance.mpvex.preferences.AdvancedPreferences
 import `is`.xyz.mpv.FastThumbnails
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -23,19 +22,31 @@ import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.max
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class ThumbnailRepository(
   private val context: Context,
+  private val preferences: AdvancedPreferences,
 ) {
   private val diskCacheDimension = 1024
   private val diskJpegQuality = 85
   private val memoryCache: LruCache<String, Bitmap>
   private val diskDir: File = File(context.filesDir, "thumbnails").apply { mkdirs() }
-  private val ongoingOperations = ConcurrentHashMap<String, Deferred<Bitmap?>>()
 
   private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+  private val ongoingOperations = ThumbnailRequests<Bitmap?>(repositoryScope)
   private val maxconcurrentfolders = 3
+  private val generationSlots = Semaphore(3)
+  private val diskLock = Any()
+  private val _config = MutableStateFlow(preferences.thumbnailConfig())
+  val config = _config.asStateFlow()
 
   private data class FolderState(
     val signature: String,
@@ -44,9 +55,6 @@ class ThumbnailRepository(
 
   private val folderStates = ConcurrentHashMap<String, FolderState>()
   private val folderJobs = ConcurrentHashMap<String, Job>()
-  
-  // Track videos that failed with FastThumbnails and should use MediaStore
-  private val useMediaStoreForVideo = ConcurrentHashMap<String, Boolean>()
 
   private val _thumbnailReadyKeys =
     MutableSharedFlow<String>(
@@ -64,89 +72,61 @@ class ThumbnailRepository(
           value: Bitmap,
         ): Int = value.byteCount / 1024
       }
+    repositoryScope.launch {
+      trimDiskCache()
+      preferences.thumbnailConfigChanges.distinctUntilChanged().collect { snapshot ->
+        if (_config.value == snapshot) return@collect
+        folderJobs.values.forEach { it.cancel() }
+        folderJobs.clear()
+        folderStates.clear()
+        ongoingOperations.cancelExcept(snapshot)
+        memoryCache.evictAll()
+        _config.value = snapshot
+      }
+    }
   }
 
   suspend fun getThumbnail(
     video: Video,
     widthPx: Int,
     heightPx: Int,
-  ): Bitmap? =
-    withContext(Dispatchers.IO) {
-      val key = thumbnailKey(video, widthPx, heightPx)
+    snapshot: ThumbnailConfig = preferences.thumbnailConfig(),
+  ): Bitmap? = withContext(Dispatchers.IO) {
+    if (isNetworkUrl(video.path)) return@withContext null
+    val key = thumbnailKey(video, widthPx, heightPx, snapshot)
+    memoryCache.get(key)?.let { return@withContext it }
 
-      if (isNetworkUrl(video.path)) {
-        return@withContext null
+    // Atomic registration before starting avoids two callers decoding the same disk thumbnail.
+    // The shared task belongs to the repository: cancelling one waiter cannot cancel other waiters.
+    val operationKey = diskKey(video, snapshot)
+    ongoingOperations.await(operationKey) {
+      loadFromDisk(video, snapshot = snapshot) ?: generationSlots.withPermit {
+        currentCoroutineContext().ensureActive()
+        val thumbnail = generateWithFastThumbnails(video, diskCacheDimension, snapshot)
+          ?: generateWithMediaStore(video, diskCacheDimension)
+        currentCoroutineContext().ensureActive()
+        thumbnail?.also { writeToDisk(video, it, snapshot) }
       }
-
-      memoryCache.get(key)?.let { return@withContext it }
-
-      ongoingOperations[key]?.let {
-        return@withContext it.await()
-      }
-
-      val deferred =
-        async {
-          try {
-            loadFromDisk(video, widthPx)?.let { thumbnail ->
-              memoryCache.put(key, thumbnail)
-              _thumbnailReadyKeys.tryEmit(key)
-              return@async thumbnail
-            }
-
-            if (isNetworkUrl(video.path)) {
-              return@async null
-            }
-
-            // Check if this video should use MediaStore
-            val videoKey = videoBaseKey(video)
-            val thumbnail = if (useMediaStoreForVideo.containsKey(videoKey)) {
-              // Use MediaStore for this video
-              android.util.Log.d("ThumbnailRepository", "Using MediaStore for ${video.displayName}")
-              generateWithMediaStore(video, diskCacheDimension)
-            } else {
-              // Try FastThumbnails first
-              val fastResult = generateWithFastThumbnails(video, diskCacheDimension)
-              if (fastResult == null) {
-                // FastThumbnails failed, mark for MediaStore and try it
-                android.util.Log.w("ThumbnailRepository", "FastThumbnails failed for ${video.displayName}, falling back to MediaStore")
-                useMediaStoreForVideo[videoKey] = true
-                generateWithMediaStore(video, diskCacheDimension)
-              } else {
-                fastResult
-              }
-            }
-
-            if (thumbnail == null) {
-              return@async null
-            }
-
-            memoryCache.put(key, thumbnail)
-            _thumbnailReadyKeys.tryEmit(key)
-            writeToDisk(video, thumbnail)
-
-            thumbnail
-          } finally {
-            ongoingOperations.remove(key)
-          }
-        }
-
-      ongoingOperations[key] = deferred
-      return@withContext deferred.await()
+    }?.also {
+      memoryCache.put(key, it)
+      _thumbnailReadyKeys.tryEmit(key)
     }
+  }
 
   suspend fun getCachedThumbnail(
     video: Video,
     widthPx: Int,
     heightPx: Int,
+    snapshot: ThumbnailConfig = preferences.thumbnailConfig(),
   ): Bitmap? =
     withContext(Dispatchers.IO) {
       if (isNetworkUrl(video.path)) {
         return@withContext null
       }
       
-      val key = thumbnailKey(video, widthPx, heightPx)
+      val key = thumbnailKey(video, widthPx, heightPx, snapshot)
       synchronized(memoryCache) { memoryCache.get(key) }?.let { return@withContext it }
-      loadFromDisk(video, widthPx)?.let { thumbnail ->
+      loadFromDisk(video, widthPx, snapshot)?.let { thumbnail ->
         synchronized(memoryCache) { memoryCache.put(key, thumbnail) }
         return@withContext thumbnail
       }
@@ -157,12 +137,13 @@ class ThumbnailRepository(
     video: Video,
     widthPx: Int,
     heightPx: Int,
+    snapshot: ThumbnailConfig = preferences.thumbnailConfig(),
   ): Bitmap? {
     if (isNetworkUrl(video.path)) {
       return null
     }
     
-    val key = thumbnailKey(video, widthPx, heightPx)
+    val key = thumbnailKey(video, widthPx, heightPx, snapshot)
     return synchronized(memoryCache) { memoryCache.get(key) }
   }
 
@@ -170,14 +151,13 @@ class ThumbnailRepository(
     folderJobs.values.forEach { it.cancel() }
     folderJobs.clear()
     folderStates.clear()
-    ongoingOperations.clear()
-    useMediaStoreForVideo.clear()
+    ongoingOperations.cancelAll()
 
     synchronized(memoryCache) {
       memoryCache.evictAll()
     }
 
-    runCatching {
+    synchronized(diskLock) {
       if (diskDir.exists()) {
         diskDir.listFiles()?.forEach { it.delete() }
       }
@@ -192,6 +172,7 @@ class ThumbnailRepository(
   ) {
     if (videos.isEmpty()) return
     
+    val snapshot = preferences.thumbnailConfig()
     folderJobs.remove(folderId)?.cancel()
     folderJobs[folderId] =
       repositoryScope.launch(Dispatchers.Default) {
@@ -209,7 +190,7 @@ class ThumbnailRepository(
           }
         }
 
-        val signature = folderSignature(filteredVideos, widthPx, heightPx)
+        val signature = folderSignature(filteredVideos, widthPx, heightPx) + snapshot.fingerprint
         val state =
           folderStates.compute(folderId) { _, existing ->
             if (existing == null || existing.signature != signature) {
@@ -220,9 +201,9 @@ class ThumbnailRepository(
           }!!
 
         var i = state.nextIndex
-        while (i < filteredVideos.size && isActive) {
+        while (i < filteredVideos.size && isActive && snapshot == preferences.thumbnailConfig()) {
           val video = filteredVideos[i]
-          getThumbnail(video, widthPx, heightPx)
+          getThumbnail(video, widthPx, heightPx, snapshot)
           i++
           state.nextIndex = i
         }
@@ -233,9 +214,10 @@ class ThumbnailRepository(
     video: Video,
     width: Int,
     height: Int,
+    snapshot: ThumbnailConfig = preferences.thumbnailConfig(),
   ): String {
     val base = videoBaseKey(video)
-    return "$base|$width|$height"
+    return snapshot.cacheKey(base, "$width|$height")
   }
 
   private fun videoBaseKey(video: Video): String {
@@ -244,7 +226,7 @@ class ThumbnailRepository(
       return "$base|network"
     }
     
-    return "${video.size}|${video.dateModified}|${video.duration}"
+    return "${video.path.ifBlank { video.uri.toString() }}|${video.size}|${video.dateModified}|${video.duration}"
   }
 
   private fun keyToFileName(key: String): String {
@@ -254,13 +236,13 @@ class ThumbnailRepository(
     return "$hex.jpg"
   }
 
-  private fun diskKey(video: Video): String {
+  private fun diskKey(video: Video, snapshot: ThumbnailConfig): String {
     val baseKey = videoBaseKey(video)
-    return "$baseKey|disk|d$diskCacheDimension"
+    return snapshot.cacheKey(baseKey, "disk|d$diskCacheDimension")
   }
 
-  private fun loadFromDisk(video: Video, targetWidthPx: Int = 0): Bitmap? {
-    val diskFile = File(diskDir, keyToFileName(diskKey(video)))
+  private fun loadFromDisk(video: Video, targetWidthPx: Int = 0, snapshot: ThumbnailConfig): Bitmap? {
+    val diskFile = File(diskDir, keyToFileName(diskKey(video, snapshot)))
     if (!diskFile.exists()) return null
     return runCatching {
       val options =
@@ -283,13 +265,37 @@ class ThumbnailRepository(
     }.getOrNull()
   }
 
-  private fun writeToDisk(video: Video, bitmap: Bitmap) {
-    val diskFile = File(diskDir, keyToFileName(diskKey(video)))
-    runCatching {
-      FileOutputStream(diskFile).use { out ->
-        bitmap.compress(Bitmap.CompressFormat.JPEG, diskJpegQuality, out)
-        out.flush()
+  private suspend fun writeToDisk(video: Video, bitmap: Bitmap, snapshot: ThumbnailConfig) {
+    val coroutineContext = currentCoroutineContext()
+    synchronized(diskLock) {
+      coroutineContext.ensureActive()
+      // Old requests can only write their own versioned file. Cancelled work never writes.
+      val diskFile = File(diskDir, keyToFileName(diskKey(video, snapshot)))
+      var temp: File? = null
+      try {
+        temp = File.createTempFile("thumbnail-", ".tmp", diskDir)
+        FileOutputStream(temp).use { out ->
+          if (!bitmap.compress(Bitmap.CompressFormat.JPEG, diskJpegQuality, out)) return
+        }
+        if (!temp.renameTo(diskFile)) return
+        trimDiskCache()
+      } catch (_: java.io.IOException) {
+        // A full or unavailable cache must not prevent displaying the decoded frame.
+      } finally {
+        temp?.delete()
       }
+    }
+  }
+
+  /** Bound old configurations and legacy files to 256 MiB, off the UI thread. */
+  private fun trimDiskCache() = synchronized(diskLock) {
+    val files = diskDir.listFiles()?.filter { it.extension == "jpg" } ?: return@synchronized
+    var bytes = files.sumOf { it.length() }
+    if (bytes <= 256L * 1024 * 1024) return@synchronized
+    for (file in files.sortedBy { it.lastModified() }) {
+      if (bytes <= 256L * 1024 * 1024) break
+      val length = file.length()
+      if (file.delete()) bytes -= length
     }
   }
 
@@ -307,24 +313,43 @@ class ThumbnailRepository(
   private suspend fun generateWithFastThumbnails(
     video: Video,
     dimension: Int,
+    snapshot: ThumbnailConfig,
   ): Bitmap? {
-    return runCatching {
-      val positionSec = preferredPositionSeconds(video)
-      
-      val bmp = FastThumbnails.generateAsync(
-          video.path.ifBlank { video.uri.toString() },
-          positionSec,
-          dimension,
-          useHwDec = false
-      ) ?: return@runCatching null
-      rotateIfNeeded(video, bmp)
-    }.getOrNull()
+    val coroutineContext = currentCoroutineContext()
+    val bitmap = selectThumbnailFrame(
+      positions = snapshot.positions(video.duration),
+      avoidDarkFrames = snapshot.mode == ThumbnailMode.SMART && snapshot.avoidDarkFrames,
+      checkCancellation = { coroutineContext.ensureActive() },
+      decode = { position ->
+        try {
+          FastThumbnails.generateAsync(
+            video.path.ifBlank { video.uri.toString() }, position, dimension, useHwDec = false,
+          )?.takeUnless { it.isRecycled || it.width <= 0 || it.height <= 0 }
+        } catch (cancelled: CancellationException) {
+          throw cancelled
+        } catch (_: Exception) {
+          null
+        }
+      },
+      analyze = DarkFrameDetector::analyze,
+      discard = { it.recycle() },
+    ) ?: return null
+    return try {
+      rotateIfNeeded(video, bitmap).also { if (it !== bitmap) bitmap.recycle() }
+    } catch (cancelled: CancellationException) {
+      bitmap.recycle()
+      throw cancelled
+    } catch (_: Exception) {
+      // Rotation metadata is optional; a valid decoded frame still beats a system fallback.
+      bitmap
+    }
   }
 
   private suspend fun generateWithMediaStore(
     video: Video,
     dimension: Int,
   ): Bitmap? {
+    // System fallback APIs choose their own frame; they cannot honor the configured seek time.
     // MediaStore only works for local files, not network URLs
     if (isNetworkUrl(video.path)) {
       android.util.Log.w("ThumbnailRepository", "Cannot use MediaStore for network URL: ${video.path}")
@@ -378,6 +403,7 @@ class ThumbnailRepository(
           }
         }
       }.onFailure { e ->
+        if (e is CancellationException) throw e
         android.util.Log.w("ThumbnailRepository", "MediaStore thumbnail failed for ${video.displayName}, will try ThumbnailUtils: ${e.message}")
       }.getOrNull()
       
@@ -427,21 +453,12 @@ class ThumbnailRepository(
           null
         }
       }.onFailure { e ->
+        if (e is CancellationException) throw e
         android.util.Log.e("ThumbnailRepository", "ThumbnailUtils thumbnail generation failed for ${video.displayName}", e)
       }.getOrNull()
     }
   }
 
-  private fun preferredPositionSeconds(video: Video): Double {
-    val durationSec = video.duration / 1000.0
-    
-    if (durationSec <= 0.0 || durationSec < 20.0) return 0.0
-    
-    val candidate = 3.0
-    
-    return candidate.coerceIn(0.0, max(0.0, durationSec - 0.1))
-  }
-  
   private fun isNetworkUrl(path: String): Boolean {
     return path.startsWith("http://", ignoreCase = true) ||
       path.startsWith("https://", ignoreCase = true) ||

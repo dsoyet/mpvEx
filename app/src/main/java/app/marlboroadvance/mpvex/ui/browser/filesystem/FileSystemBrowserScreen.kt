@@ -1026,6 +1026,7 @@ private fun FileSystemBrowserContent(
   val gesturePreferences = koinInject<GesturePreferences>()
   val browserPreferences = koinInject<BrowserPreferences>()
   val thumbnailRepository = koinInject<app.marlboroadvance.mpvex.domain.thumbnail.ThumbnailRepository>()
+  val thumbnailConfig by thumbnailRepository.config.collectAsState()
   val tapThumbnailToSelect by gesturePreferences.tapThumbnailToSelect.collectAsState()
   val showVideoThumbnails by browserPreferences.showVideoThumbnails.collectAsState()
 
@@ -1049,7 +1050,7 @@ private fun FileSystemBrowserContent(
   }
 
   // Generate thumbnails sequentially
-  LaunchedEffect(folderId, showVideoThumbnails, videos.size, thumbWidthPx, thumbHeightPx) {
+  LaunchedEffect(folderId, showVideoThumbnails, videos.size, thumbWidthPx, thumbHeightPx, thumbnailConfig) {
     if (showVideoThumbnails && videos.isNotEmpty()) {
       thumbnailRepository.startFolderThumbnailGeneration(
         folderId = folderId,

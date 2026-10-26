@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="pref_video_thumbnails">视频缩略图</string>
+  <string name="pref_thumbnail_mode">缩略图模式</string>
+  <string name="pref_thumbnail_mode_fixed">固定时间</string>
+  <string name="pref_thumbnail_mode_percentage">百分比</string>
+  <string name="pref_thumbnail_mode_smart">智能</string>
+  <string name="pref_thumbnail_position_seconds">缩略图位置（秒）</string>
+  <string name="pref_thumbnail_position_percent">缩略图位置（百分比）</string>
+  <string name="pref_thumbnail_avoid_dark_frames">避开黑屏画面</string>
+  <string name="pref_thumbnail_max_attempts">最大尝试次数</string>
+  <string name="pref_thumbnail_seconds_value">%1$d 秒</string>
+  <string name="pref_thumbnail_clear_cache">清除缩略图缓存</string>
+</resources>

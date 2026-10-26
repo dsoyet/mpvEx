@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="pref_video_thumbnails">Video thumbnails</string>
+  <string name="pref_thumbnail_mode">Thumbnail mode</string>
+  <string name="pref_thumbnail_mode_fixed">Fixed time</string>
+  <string name="pref_thumbnail_mode_percentage">Percentage</string>
+  <string name="pref_thumbnail_mode_smart">Smart</string>
+  <string name="pref_thumbnail_position_seconds">Thumbnail position (seconds)</string>
+  <string name="pref_thumbnail_position_percent">Thumbnail position (%)</string>
+  <string name="pref_thumbnail_avoid_dark_frames">Avoid dark frames</string>
+  <string name="pref_thumbnail_max_attempts">Maximum attempts</string>
+  <string name="pref_thumbnail_seconds_value">%1$d seconds</string>
+  <string name="pref_thumbnail_clear_cache">Clear thumbnail cache</string>
+</resources>

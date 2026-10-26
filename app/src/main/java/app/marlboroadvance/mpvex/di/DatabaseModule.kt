@@ -485,7 +485,7 @@ val DatabaseModule =
       RecentlyPlayedRepositoryImpl(get<MpvExDatabase>().recentlyPlayedDao())
     }
 
-    single { ThumbnailRepository(androidContext()) }
+    single { ThumbnailRepository(androidContext(), get()) }
 
     single {
       app.marlboroadvance.mpvex.database.repository.VideoMetadataCacheRepository(

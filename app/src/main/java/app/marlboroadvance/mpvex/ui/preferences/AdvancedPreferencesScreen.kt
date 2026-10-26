@@ -61,6 +61,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import me.zhanghai.compose.preference.Preference
 import me.zhanghai.compose.preference.ProvidePreferenceLocals
+import me.zhanghai.compose.preference.ListPreference
+import me.zhanghai.compose.preference.SliderPreference
+import app.marlboroadvance.mpvex.domain.thumbnail.ThumbnailMode
+import kotlin.math.roundToInt
 import me.zhanghai.compose.preference.SwitchPreference
 import me.zhanghai.compose.preference.TwoTargetIconButtonPreference
 import org.koin.compose.koinInject
@@ -247,6 +251,67 @@ object AdvancedPreferencesScreen : Screen {
             .fillMaxSize()
             .padding(padding),
         ) {
+          item { PreferenceSectionHeader(title = stringResource(R.string.pref_video_thumbnails)) }
+          item {
+            PreferenceCard {
+              val mode by preferences.thumbnailMode.collectAsState()
+              val seconds by preferences.thumbnailPositionSeconds.collectAsState()
+              val percent by preferences.thumbnailPositionPercent.collectAsState()
+              val avoidDark by preferences.thumbnailAvoidDarkFrames.collectAsState()
+              val attempts by preferences.thumbnailMaxAttempts.collectAsState()
+              val modeNames = mapOf(
+                ThumbnailMode.FIXED to stringResource(R.string.pref_thumbnail_mode_fixed),
+                ThumbnailMode.PERCENTAGE to stringResource(R.string.pref_thumbnail_mode_percentage),
+                ThumbnailMode.SMART to stringResource(R.string.pref_thumbnail_mode_smart),
+              )
+              ListPreference(
+                value = mode,
+                onValueChange = preferences.thumbnailMode::set,
+                values = ThumbnailMode.entries,
+                valueToText = { AnnotatedString(modeNames.getValue(it)) },
+                title = { Text(stringResource(R.string.pref_thumbnail_mode)) },
+                summary = { Text(modeNames.getValue(mode)) },
+              )
+              PreferenceDivider()
+              if (mode == ThumbnailMode.FIXED) {
+                SliderPreference(
+                  value = seconds.coerceIn(0, 600).toFloat(),
+                  onValueChange = { preferences.thumbnailPositionSeconds.set(it.roundToInt()) },
+                  title = { Text(stringResource(R.string.pref_thumbnail_position_seconds)) },
+                  summary = { Text(stringResource(R.string.pref_thumbnail_seconds_value, seconds.coerceIn(0, 600))) },
+                  valueRange = 0f..600f,
+                  sliderValue = seconds.coerceIn(0, 600).toFloat(),
+                  onSliderValueChange = { preferences.thumbnailPositionSeconds.set(it.roundToInt()) },
+                )
+              } else {
+                ListPreference(
+                  value = (percent.coerceIn(0, 95) / 5) * 5,
+                  onValueChange = preferences.thumbnailPositionPercent::set,
+                  values = (0..95 step 5).toList(),
+                  valueToText = { AnnotatedString("$it%") },
+                  title = { Text(stringResource(R.string.pref_thumbnail_position_percent)) },
+                  summary = { Text("${(percent.coerceIn(0, 95) / 5) * 5}%") },
+                )
+              }
+              if (mode == ThumbnailMode.SMART) {
+                PreferenceDivider()
+                SwitchPreference(
+                  value = avoidDark,
+                  onValueChange = preferences.thumbnailAvoidDarkFrames::set,
+                  title = { Text(stringResource(R.string.pref_thumbnail_avoid_dark_frames)) },
+                )
+                PreferenceDivider()
+                ListPreference(
+                  value = attempts.coerceIn(1, 5),
+                  onValueChange = preferences.thumbnailMaxAttempts::set,
+                  values = (1..5).toList(),
+                  valueToText = { AnnotatedString(it.toString()) },
+                  title = { Text(stringResource(R.string.pref_thumbnail_max_attempts)) },
+                  summary = { Text(attempts.coerceIn(1, 5).toString()) },
+                )
+              }
+            }
+          }
           // Backup & Restore Section
           item {
             PreferenceSectionHeader(title = "Backup & Restore")
@@ -546,7 +611,7 @@ object AdvancedPreferencesScreen : Screen {
               PreferenceDivider()
 
               Preference(
-                title = { Text(text = "Clear thumbnail cache") },
+                title = { Text(text = stringResource(R.string.pref_thumbnail_clear_cache)) },
                 summary = {
                   Text(
                     text = "Delete all cached video thumbnails (will regenerate as you browse folders)",

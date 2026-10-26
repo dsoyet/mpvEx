@@ -430,6 +430,7 @@ private fun RecentItemsContent(
   val gesturePreferences = koinInject<GesturePreferences>()
   val browserPreferences = koinInject<app.marlboroadvance.mpvex.preferences.BrowserPreferences>()
   val thumbnailRepository = koinInject<ThumbnailRepository>()
+  val thumbnailConfig by thumbnailRepository.config.collectAsState()
   val density = LocalDensity.current
   val tapThumbnailToSelect by gesturePreferences.tapThumbnailToSelect.collectAsState()
   val showSubtitleIndicator by browserPreferences.showSubtitleIndicator.collectAsState()
@@ -464,7 +465,7 @@ private fun RecentItemsContent(
     recentItems.filterIsInstance<RecentlyPlayedItem.VideoItem>().map { it.video }
   }
 
-  LaunchedEffect(recentVideos.size, showVideoThumbnails, thumbWidthPx, thumbHeightPx) {
+  LaunchedEffect(recentVideos.size, showVideoThumbnails, thumbWidthPx, thumbHeightPx, thumbnailConfig) {
     if (showVideoThumbnails && recentVideos.isNotEmpty()) {
       thumbnailRepository.startFolderThumbnailGeneration(
         folderId = "recently_played",

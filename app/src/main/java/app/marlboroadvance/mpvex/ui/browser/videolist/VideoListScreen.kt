@@ -578,6 +578,7 @@ private fun VideoListContent(
   showFloatingBottomBar: Boolean = false,
 ) {
   val thumbnailRepository = koinInject<ThumbnailRepository>()
+  val thumbnailConfig by thumbnailRepository.config.collectAsState()
   val gesturePreferences = koinInject<GesturePreferences>()
   val browserPreferences = koinInject<BrowserPreferences>()
   val mediaLayoutMode by browserPreferences.mediaLayoutMode.collectAsState()
@@ -598,7 +599,7 @@ private fun VideoListContent(
   val thumbWidthPx = with(density) { thumbWidthDp.roundToPx() }
   val thumbHeightPx = (thumbWidthPx / aspect).roundToInt()
 
-  LaunchedEffect(folderId, showVideoThumbnails, videosWithInfo.size, thumbWidthPx, thumbHeightPx) {
+  LaunchedEffect(folderId, showVideoThumbnails, videosWithInfo.size, thumbWidthPx, thumbHeightPx, thumbnailConfig) {
     if (showVideoThumbnails && videosWithInfo.isNotEmpty()) {
       kotlinx.coroutines.delay(350)
       thumbnailRepository.startFolderThumbnailGeneration(

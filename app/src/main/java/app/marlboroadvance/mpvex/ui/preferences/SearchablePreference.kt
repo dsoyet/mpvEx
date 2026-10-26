@@ -24,6 +24,25 @@ data class SearchablePreference(
 object SearchablePreferences {
     val allPreferences: List<SearchablePreference> by lazy {
         buildList {
+            listOf(
+                R.string.pref_video_thumbnails,
+                R.string.pref_thumbnail_mode,
+                R.string.pref_thumbnail_mode_fixed,
+                R.string.pref_thumbnail_mode_percentage,
+                R.string.pref_thumbnail_mode_smart,
+                R.string.pref_thumbnail_position_seconds,
+                R.string.pref_thumbnail_position_percent,
+                R.string.pref_thumbnail_avoid_dark_frames,
+                R.string.pref_thumbnail_max_attempts,
+                R.string.pref_thumbnail_clear_cache,
+            ).forEach { title ->
+                add(SearchablePreference(
+                    titleRes = title,
+                    keywords = listOf("thumbnail", "video", "smart", "dark", "frame", "position", "缩略图", "黑屏"),
+                    category = "Advanced",
+                    screen = AdvancedPreferencesScreen,
+                ))
+            }
             // Appearance preferences
             add(SearchablePreference(
                 titleRes = R.string.pref_appearance_title,
