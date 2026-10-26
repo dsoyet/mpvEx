@@ -67,8 +67,12 @@ android {
     abi {
       isEnable = true
       reset()
-      include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-      isUniversalApk = true
+      // CI can request one ABI without changing the default outputs of other release workflows.
+      val targetAbi = providers.gradleProperty("targetAbi").orNull
+      val supportedAbis = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+      require(targetAbi == null || targetAbi in supportedAbis) { "Unsupported targetAbi: $targetAbi" }
+      include(*(targetAbi?.let { listOf(it) } ?: supportedAbis).toTypedArray())
+      isUniversalApk = targetAbi == null
     }
   }
 

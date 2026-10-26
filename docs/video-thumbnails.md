@@ -63,8 +63,8 @@ git diff --check
 
 ## GitHub Actions 可安装构建
 
-后续按要求停止本地编译，改由 `.github/workflows/build.yml` 在 GitHub-hosted Ubuntu runner 上构建。工作流保留 `assembleStandardRelease`，增加项目既有的 `assembleStandardDebug`：该构建自动使用 Android Debug 签名，包名沿用已有的 `.debug` 后缀，可与正式版共存，不修改 applicationId 或 Release 签名策略。
+工作流仅运行 `testStandardReleaseUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a`，不生成 Debug、其他 ABI 或 universal APK。Gradle 的 targetAbi 属性仅在显式传入时限制输出；其余发布工作流的默认 ABI 设置不变。所有构建均在 GitHub-hosted Ubuntu runner 上执行，不再本地编译。
 
-云端使用 Android SDK 的 `apksigner verify` 校验每个 Debug APK，仅在签名有效后上传 `mpvEx-installable-debug-<SHA>` Artifact。安装时应下载这个 Artifact 并解压选择对应 ABI（不确定时用 universal）；`mpvEx-standard-release-unsigned-<SHA>` 仍是未签名产物，不能直接安装。
+构建后校验 output-metadata.json，要求仅有一个 arm64-v8a APK。优先沿用仓库的 SIGNING_KEYSTORE、SIGNING_KEY_ALIAS、SIGNING_STORE_PASSWORD、KEY_PASSWORD Secrets 签名；如果没有配置 keystore，则生成并通过 Actions Cache 保存专用 CI 测试密钥。已配置的发布密钥若缺少其他凭据会直接失败，不静默切换签名。测试密钥仅用于可安装测试版本，不能覆盖官方签名版本；缓存被清除后新密钥也无法覆盖旧 CI 签名安装。
 
-Debug 构建用于测试；不同 runner 自动生成的 Debug 证书可能不同，后续跨构建覆盖安装可能需要先卸载旧测试版。密钥和 keystore 不上传为 Artifact。
+签名后使用 apksigner verify 校验，仅上传 `signed/app-standard-arm64-v8a-release.apk` 一个文件。Artifact 名称区分 repository-signed 与 ci-test-signed，密钥文件不会进入 Artifact，原有 applicationId、版本号和 Release 压缩设置均不变。
