@@ -37,7 +37,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Test and build arm64-v8a release
-        run: ./gradlew testStandardReleaseUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a
+        run: ./gradlew testStandardDebugUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a
 
       # This is a test key only, never an official publishing credential. Reuse it between runs
       # so CI-signed installations can update while this cache is retained.
