@@ -53,7 +53,11 @@ android {
       buildConfigField("boolean", "SCOPED_STORAGE_ONLY", "false")
 
       ndk {
-        abiFilters += "arm64-v8a"
+        // When CI explicitly selects one split ABI, do not also apply an NDK filter:
+        // AGP rejects that combination even while configuring other flavors.
+        if (!providers.gradleProperty("targetAbi").isPresent) {
+          abiFilters += "arm64-v8a"
+        }
       }
     }
   }
