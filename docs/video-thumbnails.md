@@ -65,6 +65,6 @@ git diff --check
 
 工作流仅运行 `testStandardDebugUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a`，单测沿用项目启用的 Debug 测试任务（不打包 Debug APK），不生成其他 ABI 或 universal APK。Gradle 的 targetAbi 属性仅在显式传入时限制输出；其余发布工作流的默认 ABI 设置不变。所有构建均在 GitHub-hosted Ubuntu runner 上执行，不再本地编译。
 
-构建后校验 output-metadata.json，要求仅有一个 arm64-v8a APK。优先沿用仓库的 SIGNING_KEYSTORE、SIGNING_KEY_ALIAS、SIGNING_STORE_PASSWORD、KEY_PASSWORD Secrets 签名；如果没有配置 keystore，则生成并通过 Actions Cache 保存专用 CI 测试密钥。已配置的发布密钥若缺少其他凭据会直接失败，不静默切换签名。测试密钥仅用于可安装测试版本，不能覆盖官方签名版本；缓存被清除后新密钥也无法覆盖旧 CI 签名安装。
+构建后校验 output-metadata.json，要求仅有一个 arm64-v8a APK。优先沿用仓库的 SIGNING_KEYSTORE、SIGNING_KEY_ALIAS、SIGNING_STORE_PASSWORD、KEY_PASSWORD Secrets 签名；如果没有配置 keystore，则在 runner 临时目录生成专用 CI 测试密钥，运行结束删除，不缓存或上传。已配置的发布密钥若缺少其他凭据会直接失败，不静默切换签名。测试密钥仅用于可安装测试版本，不能覆盖官方签名版本；每次生成的新密钥也无法覆盖旧 CI 签名安装；要持续覆盖更新，需要配置自己的固定发布签名 Secrets。
 
 签名后使用 apksigner verify 校验，仅上传 `signed/app-standard-arm64-v8a-release.apk` 一个文件。Artifact 名称区分 repository-signed 与 ci-test-signed，密钥文件不会进入 Artifact，原有 applicationId、版本号和 Release 压缩设置均不变。

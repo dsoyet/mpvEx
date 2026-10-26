@@ -39,15 +39,6 @@ jobs:
       - name: Test and build arm64-v8a release
         run: ./gradlew testStandardDebugUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a
 
-      # This is a test key only, never an official publishing credential. Reuse it between runs
-      # so CI-signed installations can update while this cache is retained.
-      - name: Restore CI test signing key
-        if: env.HAS_RELEASE_KEYSTORE == 'false'
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/mpvex-ci-signing
-          key: mpvex-ci-test-signing-v1
-
       - name: Sign and verify arm64-v8a release
         id: sign
         shell: bash
@@ -79,18 +70,14 @@ jobs:
             printf '%s' "$SIGNING_KEYSTORE" | base64 --decode > "$KEYSTORE"
             echo "signing=repository-signed" >> "$GITHUB_OUTPUT"
           else
-            CI_KEY="$RUNNER_TEMP/mpvex-ci-signing/keystore.jks"
-            mkdir -p "$(dirname "$CI_KEY")"
-            if [[ ! -f "$CI_KEY" ]]; then
-              keytool -genkeypair -noprompt -keystore "$CI_KEY" -storetype JKS \
-                -alias mpvex-ci -storepass android -keypass android \
-                -keyalg RSA -keysize 2048 -validity 10000 \
-                -dname "CN=mpvEx CI Test, O=mpvEx, C=US"
-            fi
-            cp "$CI_KEY" "$KEYSTORE"
+            # Ephemeral test key: never upload or cache a keystore.
+            keytool -genkeypair -noprompt -keystore "$KEYSTORE" -storetype JKS \
+              -alias mpvex-ci -storepass android -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=mpvEx CI Test, O=mpvEx, C=US"
             export SIGNING_KEY_ALIAS=mpvex-ci SIGNING_STORE_PASSWORD=android KEY_PASSWORD=android
             echo "signing=ci-test-signed" >> "$GITHUB_OUTPUT"
-            echo "CI test signature: cannot update an installation signed with the official key." >> "$GITHUB_STEP_SUMMARY"
+            echo "CI test signature: temporary key; cannot update official or previous CI-signed installations." >> "$GITHUB_STEP_SUMMARY"
           fi
           mkdir -p "$RELEASE_DIR/signed"
           APK="$RELEASE_DIR/signed/app-standard-arm64-v8a-release.apk"
