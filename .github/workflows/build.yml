@@ -35,10 +35,35 @@ jobs:
       - name: Test thumbnail logic
         run: ./gradlew testStandardDebugUnitTest
 
-      - name: Build with Gradle
+      - name: Build release APKs
         run: ./gradlew assembleStandardRelease
 
-      - name: Upload APK artifacts
+      # The existing debug build type signs automatically and uses the existing .debug suffix.
+      # Provide an installable test build without changing release signing or requiring secrets.
+      - name: Build installable debug APKs
+        run: ./gradlew assembleStandardDebug
+
+      - name: Verify debug APK signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          test -n "$APKSIGNER"
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/standard/debug/*.apk)
+          test "${#apks[@]}" -gt 0
+          for apk in "${apks[@]}"; do
+            "$APKSIGNER" verify --verbose "$apk"
+          done
+
+      - name: Upload installable debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpvEx-installable-debug-${{ env.SHORT_SHA }}
+          path: app/build/outputs/apk/standard/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload unsigned release APKs
         uses: actions/upload-artifact@v4
         with:
           name: mpvEx-standard-release-unsigned-${{ env.SHORT_SHA }}

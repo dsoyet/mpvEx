@@ -59,3 +59,12 @@ git diff --check
 构建提示本机没有剥离预编译原生库的调试符号，已按原样打包；没有影响构建成功。输出 metadata 确认 applicationId 仍为 `app.marlboroadvance.mpvex`，versionName 仍为 `1.3.1`。
 
 尚需真机确认的交互包括：三种模式取帧效果、重启后设置保留、XML 导入导出、浏览文件夹时切换配置，以及原有视频播放体验。JVM 测试覆盖纯 Kotlin 采样核心，无法替代 Android Bitmap / 原生解码器和 MediaStore 的设备测试。GitHub Actions 配置的远端运行需要提交推送后触发。
+
+
+## GitHub Actions 可安装构建
+
+后续按要求停止本地编译，改由 `.github/workflows/build.yml` 在 GitHub-hosted Ubuntu runner 上构建。工作流保留 `assembleStandardRelease`，增加项目既有的 `assembleStandardDebug`：该构建自动使用 Android Debug 签名，包名沿用已有的 `.debug` 后缀，可与正式版共存，不修改 applicationId 或 Release 签名策略。
+
+云端使用 Android SDK 的 `apksigner verify` 校验每个 Debug APK，仅在签名有效后上传 `mpvEx-installable-debug-<SHA>` Artifact。安装时应下载这个 Artifact 并解压选择对应 ABI（不确定时用 universal）；`mpvEx-standard-release-unsigned-<SHA>` 仍是未签名产物，不能直接安装。
+
+Debug 构建用于测试；不同 runner 自动生成的 Debug 证书可能不同，后续跨构建覆盖安装可能需要先卸载旧测试版。密钥和 keystore 不上传为 Artifact。
