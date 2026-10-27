@@ -37,7 +37,22 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Test and build arm64-v8a release
-        run: ./gradlew testStandardDebugUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a
+        run: |
+          ./gradlew testStandardDebugUnitTest assembleStandardRelease -PtargetAbi=arm64-v8a
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          reports = list(Path("app/build/test-results/testStandardDebugUnitTest").glob("TEST-*.xml"))
+          assert reports, "No unit test reports found"
+          roots = [ET.parse(path).getroot() for path in reports]
+          counts = {key: sum(int(root.attrib.get(key, 0)) for root in roots) for key in ("tests", "failures", "errors", "skipped")}
+          assert counts["tests"] > 0 and counts["failures"] == 0 and counts["errors"] == 0, counts
+          summary = "Unit tests: " + ", ".join(f"{key}={value}" for key, value in counts.items())
+          print(summary)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
+              output.write(summary + "\n")
+          PY
 
       - name: Sign and verify arm64-v8a release
         id: sign

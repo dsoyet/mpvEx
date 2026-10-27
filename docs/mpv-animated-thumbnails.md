@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 启用 | 开启 | 开 / 关 |
 | 帧数 | 5 | 2–10 |
-| 切换间隔 | 1500 ms | 500–3000 ms（界面提供 100 ms 间隔） |
+| 切换间隔 | 1500 ms | 500–3000 ms |
 | 起始位置 | 10% | 0–40% |
 | 结束位置 | 90% | 60–100% |
 | 跳过黑屏 | 开启 | 开 / 关 |
@@ -85,3 +85,6 @@ JVM 单测不等价于真机测试。没有设备时，无法确认最终滚动�
 - `app/src/test/java/app/marlboroadvance/mpvex/domain/thumbnail/ThumbnailByteCacheTest.kt`
 - `app/src/test/java/app/marlboroadvance/mpvex/domain/thumbnail/VisibleThumbnailRequestsTest.kt`
 - `docs/mpv-animated-thumbnails.md`
+
+
+补充修改：`app/src/main/java/app/marlboroadvance/mpvex/utils/media/MediaInfoOps.kt` 的导出报告品牌，以及 `presentation/crash/CrashActivity.kt` 的导出日志文件名已改为 Mpv；旧数据库名称和媒体信息历史报告的解析兼容仍保留。

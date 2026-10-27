@@ -10,6 +10,8 @@ import app.marlboroadvance.mpvex.R
 import app.marlboroadvance.mpvex.preferences.AdvancedPreferences
 import app.marlboroadvance.mpvex.preferences.preference.collectAsState
 import me.zhanghai.compose.preference.ListPreference
+import me.zhanghai.compose.preference.SliderPreference
+import kotlin.math.roundToInt
 import me.zhanghai.compose.preference.SwitchPreference
 
 @Composable
@@ -37,10 +39,12 @@ internal fun AnimatedThumbnailPreferences(preferences: AdvancedPreferences) {
           summary = { Text(count.coerceIn(2, 10).toString()) },
         )
         PreferenceDivider()
-        ListPreference(
-          value = interval.coerceIn(500, 3000), values = (500..3000 step 100).toList(),
-          onValueChange = preferences.animatedThumbnailInterval::set,
-          valueToText = { AnnotatedString("$it ms") },
+        SliderPreference(
+          value = interval.coerceIn(500, 3000).toFloat(),
+          onValueChange = { preferences.animatedThumbnailInterval.set(it.roundToInt()) },
+          sliderValue = interval.coerceIn(500, 3000).toFloat(),
+          onSliderValueChange = { preferences.animatedThumbnailInterval.set(it.roundToInt()) },
+          valueRange = 500f..3000f,
           title = { Text(stringResource(R.string.pref_animated_interval)) },
           summary = { Text(stringResource(R.string.pref_animated_interval_value, interval.coerceIn(500, 3000))) },
         )
