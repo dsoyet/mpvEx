@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="pref_animated_thumbnails">动态缩略图</string>
+  <string name="pref_animated_enabled">启用动态缩略图</string>
+  <string name="pref_animated_count">帧数</string>
+  <string name="pref_animated_interval">切换间隔</string>
+  <string name="pref_animated_start">起始位置</string>
+  <string name="pref_animated_end">结束位置</string>
+  <string name="pref_animated_skip_dark">跳过黑屏截图</string>
+  <string name="pref_animated_interval_value">%1$d 毫秒</string>
+  <string name="personal_fork_attribution">基于 mpvEx / mpvExtended，上游作者与许可证信息保留在下方。</string>
+</resources>

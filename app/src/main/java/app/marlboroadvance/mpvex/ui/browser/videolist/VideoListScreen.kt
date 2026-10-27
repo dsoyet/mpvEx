@@ -84,6 +84,7 @@ import app.marlboroadvance.mpvex.preferences.preference.collectAsState
 import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.presentation.components.pullrefresh.PullRefreshBox
 import app.marlboroadvance.mpvex.BuildConfig
+import app.marlboroadvance.mpvex.ui.browser.cards.rememberVisibleVideoItem
 import app.marlboroadvance.mpvex.ui.browser.cards.VideoCard
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserBottomBar
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserTopBar
@@ -768,6 +769,7 @@ private fun VideoListContent(
 
               VideoCard(
                 video = videoWithInfo.video,
+                isThumbnailVisible = rememberVisibleVideoItem(gridState, "${videoWithInfo.video.id}_${videoWithInfo.video.path}"),
                 progressPercentage = videoWithInfo.progressPercentage,
                 isRecentlyPlayed = isRecentlyPlayed,
                 isSelected = selectionManager.isSelected(videoWithInfo.video),
@@ -820,6 +822,7 @@ private fun VideoListContent(
 
                 VideoCard(
                   video = videoWithInfo.video,
+                  isThumbnailVisible = rememberVisibleVideoItem(listState, "${videoWithInfo.video.id}_${videoWithInfo.video.path}"),
                   progressPercentage = videoWithInfo.progressPercentage,
                   isRecentlyPlayed = isRecentlyPlayed,
                   isSelected = selectionManager.isSelected(videoWithInfo.video),

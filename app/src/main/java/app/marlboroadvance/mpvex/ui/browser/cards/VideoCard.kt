@@ -35,6 +35,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -75,6 +78,7 @@ fun VideoCard(
   overrideShowResolutionChip: Boolean? = null,
   useFolderNameStyle: Boolean = false,
   allowThumbnailGeneration: Boolean = true,
+  isThumbnailVisible: Boolean = true,
 ) {
   val appearancePreferences = koinInject<AppearancePreferences>()
   val browserPreferences = koinInject<BrowserPreferences>()
@@ -86,6 +90,13 @@ fun VideoCard(
   val showProgressBar by browserPreferences.showProgressBar.collectAsState()
   val showDateChip by browserPreferences.showDateChip.collectAsState()
   val showUnplayedOldVideoLabel by appearancePreferences.showUnplayedOldVideoLabel.collectAsState()
+  val view = LocalView.current
+  var thumbnailInWindow by remember(video.path, video.uri) { mutableStateOf(false) }
+  val thumbnailVisibilityModifier = Modifier.onGloballyPositioned { coordinates ->
+    val bounds = coordinates.boundsInWindow()
+    thumbnailInWindow = coordinates.isAttached && bounds.width > 0 && bounds.height > 0 &&
+      bounds.left < view.width && bounds.right > 0 && bounds.top < view.height && bounds.bottom > 0
+  }
   val maxLines = if (unlimitedNameLines) Int.MAX_VALUE else 2
   
   // Use override parameters if provided, otherwise use preferences
@@ -158,6 +169,8 @@ fun VideoCard(
           }
         }
 
+        val displayedThumbnail = rememberAnimatedVideoFrame(video, thumbnail, isThumbnailVisible && thumbnailInWindow, showThumbnails)
+
         // Thumbnail
         Box(
           modifier = Modifier
@@ -165,6 +178,7 @@ fun VideoCard(
             .aspectRatio(aspect)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .then(thumbnailVisibilityModifier)
             .combinedClickable(
               onClick = onThumbClick,
               onLongClick = onLongClick,
@@ -172,7 +186,7 @@ fun VideoCard(
           contentAlignment = Alignment.Center,
         ) {
           if (showThumbnails) {
-            thumbnail?.let {
+            displayedThumbnail?.let {
               Image(
                 bitmap = it.asImageBitmap(),
                 contentDescription = "Thumbnail",
@@ -431,6 +445,8 @@ fun VideoCard(
           }
         }
 
+        val displayedThumbnail = rememberAnimatedVideoFrame(video, thumbnail, isThumbnailVisible && thumbnailInWindow, showThumbnails)
+
         Box(
           modifier =
             Modifier
@@ -438,6 +454,7 @@ fun VideoCard(
               .aspectRatio(aspect)
               .clip(RoundedCornerShape(12.dp))
               .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+              .then(thumbnailVisibilityModifier)
               .combinedClickable(
                 onClick = onThumbClick,
                 onLongClick = onLongClick,
@@ -445,7 +462,7 @@ fun VideoCard(
           contentAlignment = Alignment.Center,
         ) {
           if (showThumbnails) {
-            thumbnail?.let {
+            displayedThumbnail?.let {
               Image(
                 bitmap = it.asImageBitmap(),
                 contentDescription = "Thumbnail",

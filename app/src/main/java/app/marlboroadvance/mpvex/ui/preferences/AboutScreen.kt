@@ -189,7 +189,7 @@ object AboutScreen : Screen {
 
                 Column(modifier = Modifier.weight(1f)) {
                   Text(
-                    text = "mpvExtended",
+                    text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = cs.onPrimaryContainer,
@@ -199,6 +199,11 @@ object AboutScreen : Screen {
                     text = "v$versionName $buildType",
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onPrimaryContainer.copy(alpha = 0.85f),
+                  )
+                  Text(
+                    text = stringResource(R.string.personal_fork_attribution),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onPrimaryContainer.copy(alpha = 0.75f),
                   )
                 }
               }

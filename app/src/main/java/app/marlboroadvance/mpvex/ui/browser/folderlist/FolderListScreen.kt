@@ -96,6 +96,7 @@ import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.presentation.components.pullrefresh.PullRefreshBox
 import app.marlboroadvance.mpvex.ui.browser.LocalNavigationBarHeight
 import app.marlboroadvance.mpvex.ui.browser.cards.FolderCard
+import app.marlboroadvance.mpvex.ui.browser.cards.rememberVisibleVideoItem
 import app.marlboroadvance.mpvex.ui.browser.cards.VideoCard
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserTopBar
 import app.marlboroadvance.mpvex.ui.browser.dialogs.DeleteConfirmationDialog
@@ -1037,6 +1038,8 @@ private fun SearchResultsContent(
   mediaLayoutMode: app.marlboroadvance.mpvex.preferences.MediaLayoutMode,
   folderGridColumns: Int,
 ) {
+  val listState = rememberLazyListState()
+  val gridState = rememberLazyGridState()
   val folders = searchResults.filterIsInstance<FileSystemItem.Folder>().map { folder ->
     app.marlboroadvance.mpvex.domain.media.model.VideoFolder(
       bucketId = folder.path,  // Use path as bucketId since FileSystemItem.Folder doesn't have bucketId
@@ -1055,6 +1058,7 @@ private fun SearchResultsContent(
   Box(modifier = Modifier.fillMaxSize()) {
     if (isGridMode) {
       LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Fixed(folderGridColumns),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -1066,7 +1070,7 @@ private fun SearchResultsContent(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
       ) {
-        items(folders.size) { index ->
+        items(folders.size, key = { "folder_${folders[it].path}" }) { index ->
           val folder = folders[index]
           FolderCard(
             folder = folder,
@@ -1080,10 +1084,11 @@ private fun SearchResultsContent(
           )
         }
         
-        items(videos.size) { index ->
+        items(videos.size, key = { "video_${videos[it].id}_${videos[it].path}" }) { index ->
           val video = videos[index]
           VideoCard(
             video = video,
+            isThumbnailVisible = rememberVisibleVideoItem(gridState, "video_${video.id}_${video.path}"),
             isSelected = false,
             onClick = { onVideoClick(video) },
             onLongClick = {},
@@ -1094,6 +1099,7 @@ private fun SearchResultsContent(
       }
     } else {
       LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
           start = 8.dp,
@@ -1102,7 +1108,7 @@ private fun SearchResultsContent(
           bottom = navigationBarHeight + 8.dp
         ),
       ) {
-        items(folders.size) { index ->
+        items(folders.size, key = { "folder_${folders[it].path}" }) { index ->
           val folder = folders[index]
           FolderCard(
             folder = folder,
@@ -1116,10 +1122,11 @@ private fun SearchResultsContent(
           )
         }
         
-        items(videos.size) { index ->
+        items(videos.size, key = { "video_${videos[it].id}_${videos[it].path}" }) { index ->
           val video = videos[index]
           VideoCard(
             video = video,
+            isThumbnailVisible = rememberVisibleVideoItem(listState, "video_${video.id}_${video.path}"),
             isSelected = false,
             onClick = { onVideoClick(video) },
             onLongClick = {},

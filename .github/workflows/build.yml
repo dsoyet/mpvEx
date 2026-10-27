@@ -50,15 +50,22 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE_DIR="app/build/outputs/apk/standard/release"
-          python3 - <<'PY'
+          VERSION=$(python3 - <<'PY'
           import json
+          import re
           from pathlib import Path
           root = Path("app/build/outputs/apk/standard/release")
-          elements = json.loads((root / "output-metadata.json").read_text())["elements"]
+          metadata = json.loads((root / "output-metadata.json").read_text())
+          assert metadata["applicationId"] == "app.mpv.personal", metadata["applicationId"]
+          elements = metadata["elements"]
           assert len(elements) == 1, "Expected exactly one release APK"
           assert elements[0]["filters"] == [{"filterType": "ABI", "value": "arm64-v8a"}], elements
           assert len(list(root.glob("*.apk"))) == 1, "Unexpected extra APK outputs"
+          version = elements[0]["versionName"]
+          assert re.fullmatch(r"[A-Za-z0-9._-]+", version), version
+          print(version)
           PY
+          )
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
           test -n "$APKSIGNER"
           KEYSTORE="$RUNNER_TEMP/mpvex-release.keystore"
@@ -80,17 +87,27 @@ jobs:
             echo "CI test signature: temporary key; cannot update official or previous CI-signed installations." >> "$GITHUB_STEP_SUMMARY"
           fi
           mkdir -p "$RELEASE_DIR/signed"
-          APK="$RELEASE_DIR/signed/app-standard-arm64-v8a-release.apk"
+          APK="$RELEASE_DIR/signed/Mpv-${VERSION}-arm64-v8a.apk"
           "$APKSIGNER" sign --ks "$KEYSTORE" --ks-key-alias "$SIGNING_KEY_ALIAS" \
             --ks-pass env:SIGNING_STORE_PASSWORD --key-pass env:KEY_PASSWORD \
             --out "$APK" "$RELEASE_DIR/app-standard-arm64-v8a-release-unsigned.apk"
           "$APKSIGNER" verify --verbose "$APK"
+          echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
+          BADGING=$("$(dirname "$APKSIGNER")/aapt2" dump badging "$APK")
+          printf '%s\n' "$BADGING" | sed -n '1,8p'
+          grep -q "package: name='app.mpv.personal'" <<< "$BADGING"
+          grep -q "application-label:'Mpv'" <<< "$BADGING"
+          MANIFEST=$("$(dirname "$APKSIGNER")/aapt2" dump xmltree "$APK" --file AndroidManifest.xml)
+          grep -q 'app.mpv.personal.provider' <<< "$MANIFEST"
+          grep -q 'app.mpv.personal.networkstreaming' <<< "$MANIFEST"
+          grep -q 'app.marlboroadvance.mpvex.App' <<< "$MANIFEST"
+          grep -q 'app.marlboroadvance.mpvex.ui.player.PlayerActivity' <<< "$MANIFEST"
           echo "### arm64-v8a Release APK" >> "$GITHUB_STEP_SUMMARY"
           echo "$(basename "$APK"): $(stat -c%s "$APK") bytes; signature verified." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed arm64-v8a release APK
         uses: actions/upload-artifact@v4
         with:
-          name: mpvEx-arm64-v8a-release-${{ steps.sign.outputs.signing }}-${{ env.SHORT_SHA }}
-          path: app/build/outputs/apk/standard/release/signed/app-standard-arm64-v8a-release.apk
+          name: Mpv-Android
+          path: ${{ steps.sign.outputs.apk_path }}
           if-no-files-found: error

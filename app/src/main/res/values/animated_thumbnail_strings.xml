@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="pref_animated_thumbnails">Animated thumbnails</string>
+  <string name="pref_animated_enabled">Enable animated thumbnails</string>
+  <string name="pref_animated_count">Frame count</string>
+  <string name="pref_animated_interval">Frame interval</string>
+  <string name="pref_animated_start">Start position</string>
+  <string name="pref_animated_end">End position</string>
+  <string name="pref_animated_skip_dark">Skip dark frames</string>
+  <string name="pref_animated_interval_value">%1$d ms</string>
+  <string name="personal_fork_attribution">Based on mpvEx / mpvExtended. Upstream authors and licenses are credited below.</string>
+</resources>

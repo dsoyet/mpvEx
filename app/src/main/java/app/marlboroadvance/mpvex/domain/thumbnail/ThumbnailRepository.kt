@@ -304,6 +304,10 @@ class ThumbnailRepository(
     bitmap: Bitmap
   ): Bitmap {
     val rotation = MediaInfoOps.getRotation(context, video.uri, video.displayName)
+    return rotateBitmap(bitmap, rotation)
+  }
+
+  private fun rotateBitmap(bitmap: Bitmap, rotation: Int): Bitmap {
     if (rotation == 0) return bitmap
     val matrix = android.graphics.Matrix()
     matrix.postRotate(rotation.toFloat())
@@ -341,6 +345,31 @@ class ThumbnailRepository(
       throw cancelled
     } catch (_: Exception) {
       // Rotation metadata is optional; a valid decoded frame still beats a system fallback.
+      bitmap
+    }
+  }
+
+  internal fun supportsThumbnails(video: Video): Boolean = !isNetworkUrl(video.path)
+
+  /** Animated generation shares the existing 3 decoder slots, and itself uses at most 2.
+   * This leaves capacity for ordinary thumbnails; animations release the slot between frames.
+   */
+  internal suspend fun animatedRotation(video: Video): Int =
+    MediaInfoOps.getRotation(context, video.uri, video.displayName)
+
+  internal suspend fun decodeAnimatedFrame(video: Video, position: Double, rotation: Int): Bitmap? = generationSlots.withPermit {
+    currentCoroutineContext().ensureActive()
+    var bitmap: Bitmap? = null
+    try {
+      bitmap = FastThumbnails.generateAsync(
+        video.path.ifBlank { video.uri.toString() }, position, 256, useHwDec = false,
+      )?.takeUnless { it.isRecycled || it.width <= 0 || it.height <= 0 }
+      val decoded = bitmap ?: return@withPermit null
+      rotateBitmap(decoded, rotation).also { if (it !== decoded) decoded.recycle() }
+    } catch (cancelled: CancellationException) {
+      bitmap?.takeUnless { it.isRecycled }?.recycle()
+      throw cancelled
+    } catch (_: Exception) {
       bitmap
     }
   }

@@ -91,6 +91,7 @@ import app.marlboroadvance.mpvex.preferences.MediaLayoutMode
 import app.marlboroadvance.mpvex.preferences.preference.collectAsState
 import app.marlboroadvance.mpvex.presentation.components.pullrefresh.PullRefreshBox
 import app.marlboroadvance.mpvex.ui.browser.cards.FolderCard
+import app.marlboroadvance.mpvex.ui.browser.cards.rememberVisibleVideoItem
 import app.marlboroadvance.mpvex.ui.browser.cards.VideoCard
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserBottomBar
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserTopBar
@@ -1185,6 +1186,7 @@ private fun FileSystemBrowserContent(
             ) { videoFile ->
               VideoCard(
                 video = videoFile.video,
+                isThumbnailVisible = rememberVisibleVideoItem(listState, "${videoFile.video.id}_${videoFile.video.path}"),
                 progressPercentage = videoFilesWithPlayback[videoFile.video.id],
                 isRecentlyPlayed = false,
                 isSelected = videoSelectionManager.isSelected(videoFile.video),
@@ -1363,6 +1365,7 @@ private fun FileSystemSearchContent(
             ) { videoFile ->
               VideoCard(
                 video = videoFile.video,
+                isThumbnailVisible = rememberVisibleVideoItem(listState, "search_video_${videoFile.video.id}_${videoFile.video.path}_${videoFile.hashCode()}"),
                 progressPercentage = videoFilesWithPlayback[videoFile.video.id],
                 isRecentlyPlayed = false,
                 isSelected = false,

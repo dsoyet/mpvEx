@@ -486,6 +486,7 @@ val DatabaseModule =
     }
 
     single { ThumbnailRepository(androidContext(), get()) }
+    single { app.marlboroadvance.mpvex.domain.thumbnail.AnimatedThumbnailRepository(androidContext(), get(), get()) }
 
     single {
       app.marlboroadvance.mpvex.database.repository.VideoMetadataCacheRepository(

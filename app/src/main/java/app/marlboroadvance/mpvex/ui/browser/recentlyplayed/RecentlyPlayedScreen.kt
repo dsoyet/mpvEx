@@ -69,6 +69,7 @@ import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.presentation.components.ConfirmDialog
 import app.marlboroadvance.mpvex.presentation.components.pullrefresh.PullRefreshBox
 import app.marlboroadvance.mpvex.ui.browser.cards.FolderCard
+import app.marlboroadvance.mpvex.ui.browser.cards.rememberVisibleVideoItem
 import app.marlboroadvance.mpvex.ui.browser.cards.VideoCard
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserTopBar
 import app.marlboroadvance.mpvex.ui.browser.playlist.PlaylistDetailScreen
@@ -539,6 +540,7 @@ private fun RecentItemsContent(
                 is RecentlyPlayedItem.VideoItem -> {
                   VideoCard(
                     video = item.video,
+                    isThumbnailVisible = rememberVisibleVideoItem(gridState, "video_${item.video.id}_${item.timestamp}"),
                     progressPercentage = null,
                     isSelected = selectionManager.isSelected(item),
                     onClick = {
@@ -649,6 +651,7 @@ private fun RecentItemsContent(
                 is RecentlyPlayedItem.VideoItem -> {
                   VideoCard(
                     video = item.video,
+                    isThumbnailVisible = rememberVisibleVideoItem(listState, "video_${item.video.id}_${item.timestamp}"),
                     progressPercentage = null,
                     isSelected = selectionManager.isSelected(item),
                     onClick = {

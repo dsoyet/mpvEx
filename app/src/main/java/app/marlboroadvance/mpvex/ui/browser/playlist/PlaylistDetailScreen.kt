@@ -65,6 +65,7 @@ import app.marlboroadvance.mpvex.preferences.preference.collectAsState
 import app.marlboroadvance.mpvex.presentation.Screen
 import app.marlboroadvance.mpvex.presentation.components.pullrefresh.PullRefreshBox
 import app.marlboroadvance.mpvex.ui.browser.cards.M3UVideoCard
+import app.marlboroadvance.mpvex.ui.browser.cards.rememberVisibleVideoItem
 import app.marlboroadvance.mpvex.ui.browser.cards.VideoCard
 import app.marlboroadvance.mpvex.ui.browser.components.BrowserTopBar
 import app.marlboroadvance.mpvex.ui.browser.selection.rememberSelectionManager
@@ -665,6 +666,7 @@ private fun PlaylistVideoListContent(
                 } else {
                   VideoCard(
                     video = item.video,
+                    isThumbnailVisible = rememberVisibleVideoItem(listState, item.playlistItem.id),
                     progressPercentage = progressPercentage,
                     isRecentlyPlayed = item.playlistItem.id == mostRecentlyPlayedItem?.playlistItem?.id,
                     isSelected = selectionManager.isSelected(item),

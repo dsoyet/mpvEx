@@ -312,6 +312,7 @@ object AdvancedPreferencesScreen : Screen {
               }
             }
           }
+          item { AnimatedThumbnailPreferences(preferences) }
           // Backup & Restore Section
           item {
             PreferenceSectionHeader(title = "Backup & Restore")
@@ -580,6 +581,7 @@ object AdvancedPreferencesScreen : Screen {
               var mpvConf by remember { mutableStateOf(preferences.mpvConf.get()) }
               var isClearThumbsConfirmShown by remember { mutableStateOf(false) }
               val thumbnailRepository = koinInject<ThumbnailRepository>()
+              val animatedThumbnailRepository = koinInject<app.marlboroadvance.mpvex.domain.thumbnail.AnimatedThumbnailRepository>()
               
               Preference(
                 title = { Text(text = "Clear config cache") },
@@ -629,6 +631,7 @@ object AdvancedPreferencesScreen : Screen {
                     scope.launch(Dispatchers.IO) {
                       runCatching {
                         thumbnailRepository.clearThumbnailCache()
+                        animatedThumbnailRepository.clearCache()
                       }.onSuccess {
                         withContext(Dispatchers.Main) {
                           isClearThumbsConfirmShown = false

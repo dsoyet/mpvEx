@@ -35,6 +35,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
+import app.marlboroadvance.mpvex.BuildConfig
 import app.marlboroadvance.mpvex.database.entities.PlaybackStateEntity
 import app.marlboroadvance.mpvex.databinding.PlayerLayoutBinding
 import app.marlboroadvance.mpvex.domain.playbackstate.repository.PlaybackStateRepository
@@ -3607,7 +3608,7 @@ class PlayerActivity :
     /**
      * Intent action used to return playback result data to the calling activity.
      */
-    private const val RESULT_INTENT = "app.marlboroadvance.mpvex.ui.player.PlayerActivity.result"
+    private const val RESULT_INTENT = "${BuildConfig.APPLICATION_ID}.ui.player.PlayerActivity.result"
 
     /**
      * Constant for "brightness not set".
